@@ -1,0 +1,63 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install web dependencies and Capacitor
+        run: |
+          npm install --no-audit --no-fund
+          npm install @capacitor/core@^7.4.4 @capacitor/android@^7.4.4 --save --no-audit --no-fund
+          npm install -D @capacitor/cli@^7.4.4 --no-audit --no-fund
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Add Android platform
+        run: npx cap add android
+
+      - name: Sync web app to Android
+        run: npx cap sync android
+
+      - name: Add native overlay service
+        run: bash scripts_patch_android.sh
+
+      - name: Add location permissions
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/src/main/AndroidManifest.xml')
+          s = p.read_text()
+          marker = '<manifest xmlns:android="http://schemas.android.com/apk/res/android">'
+          permissions = '''\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n'''
+          if 'android.permission.ACCESS_FINE_LOCATION' not in s:
+              s = s.replace(marker, marker + permissions)
+          p.write_text(s)
+          PY
+
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HydMetroTracker-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

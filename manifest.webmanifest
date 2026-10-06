@@ -1,0 +1,9 @@
+{
+  "name": "Hyderabad Metro Live Tracker",
+  "short_name": "HYD Metro",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#050505",
+  "orientation": "portrait"
+}
